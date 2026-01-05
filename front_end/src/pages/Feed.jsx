@@ -20,11 +20,31 @@ const Feed = () => {
   useEffect(() => {
     fetchPosts();
   }, []);
-
+  
   const fetchPosts = async () => {
     try {
+      setError('');
       const data = await postService.getAllPosts(0, 20);
-      setPosts(data.content || []);
+
+      // ✅ data is a PAGE object
+      const rawPosts = Array.isArray(data?.content) ? data.content : [];
+
+      const normalizedPosts = rawPosts.map(post => ({
+        id: post.id,
+        content: post.content ?? post.caption ?? '',
+        imageUrl: post.imageUrl ?? null,
+        createdAt: post.createdAt,
+        likesCount: post.likesCount ?? 0,
+        commentsCount: post.commentsCount ?? 0,
+        user: {
+          id: post.user?.id,
+          username: post.user?.username,
+          fullName: post.user?.fullName,
+          profilePicture: post.user?.profilePicture
+        }
+      }));
+
+      setPosts(normalizedPosts);
     } catch (err) {
       setError('Failed to fetch posts');
       console.error(err);
@@ -32,6 +52,8 @@ const Feed = () => {
       setLoading(false);
     }
   };
+
+
 
   const handleCreatePost = async (e) => {
     e.preventDefault();
@@ -42,7 +64,24 @@ const Feed = () => {
 
     try {
       const createdPost = await postService.createPost(newPost);
-      setPosts([createdPost, ...posts]);
+      setPosts(prev => [
+        {
+          id: createdPost.id,
+          content: createdPost.content ?? '',
+          imageUrl: createdPost.imageUrl ?? null,
+          createdAt: createdPost.createdAt,
+          likesCount: createdPost.likesCount ?? 0,
+          commentsCount: createdPost.commentsCount ?? 0,
+          user: {
+            id: createdPost.user?.id,
+            username: createdPost.user?.username,
+            fullName: createdPost.user?.fullName,
+            profilePicture: createdPost.user?.profilePicture
+          }
+        },
+        ...prev
+      ]);
+
       setNewPost({ content: '', imageUrl: '' });
     } catch (err) {
       setError('Failed to create post');
@@ -55,7 +94,7 @@ const Feed = () => {
   const handleDeletePost = async (postId) => {
     try {
       await postService.deletePost(postId);
-      setPosts(posts.filter(post => post.id !== postId));
+      setPosts(prev => prev.filter(post => post.id !== postId));
     } catch (err) {
       setError('Failed to delete post');
       console.error(err);
@@ -69,7 +108,7 @@ const Feed = () => {
       <div className="max-w-3xl mx-auto py-8 px-4">
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-bold mb-4">Create Post</h2>
-          
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
               {error}
@@ -115,11 +154,11 @@ const Feed = () => {
         ) : (
           <div>
             {posts.map(post => (
-              <PostCard
-                key={post.id}
-                post={post}
-                onDelete={handleDeletePost}
-              />
+              <div key={post.id} className="p-4 bg-white mb-4 border">
+                <p><b>ID:</b> {post.id}</p>
+                <p><b>Content:</b> {post.content}</p>
+                <p><b>User:</b> {post.user?.username}</p>
+              </div>
             ))}
           </div>
         )}

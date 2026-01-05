@@ -83,15 +83,15 @@ const Profile = () => {
         <div className="bg-white rounded-lg shadow-md p-8 mb-6">
           <div className="flex items-start space-x-6">
             <div className="w-24 h-24 bg-primary-500 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-              {user.username.charAt(0).toUpperCase()}
+              {user?.username?.charAt(0)?.toUpperCase() || "?"}
             </div>
 
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {user.fullName}
+                {user.fullName || "Unnamed User"}
               </h1>
               <p className="text-gray-600 mb-2">@{user.username}</p>
-              
+
               {user.bio && (
                 <p className="text-gray-700 mt-4">{user.bio}</p>
               )}
@@ -101,7 +101,10 @@ const Profile = () => {
                   <span className="font-semibold text-gray-900">{posts.length}</span> Posts
                 </div>
                 <div>
-                  Joined {new Date(user.createdAt).toLocaleDateString()}
+                  Joined{" "}
+                  {user.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString()
+                    : "N/A"}
                 </div>
               </div>
             </div>
