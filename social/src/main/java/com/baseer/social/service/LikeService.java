@@ -3,11 +3,9 @@ package com.baseer.social.service;
 import com.baseer.social.entity.Like;
 import com.baseer.social.entity.Post;
 import com.baseer.social.entity.User;
-import com.baseer.social.exceptionHandling.CustomException;
 import com.baseer.social.repository.LikeRepository;
 import com.baseer.social.websocket.LikeEvent;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +14,6 @@ import java.util.Optional;
 
 /**
  * Service for like operations.
- * Handles liking/unliking posts and sends real-time updates via WebSocket.
  */
 @Service
 @RequiredArgsConstructor
@@ -28,7 +25,7 @@ public class LikeService {
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
-     * Toggle like on a post (like if not liked, unlike if already liked)
+     * Toggle like on a post
      */
     @Transactional
     public boolean toggleLike(Long postId) {
@@ -38,25 +35,20 @@ public class LikeService {
         Optional<Like> existingLike = likeRepository.findByPostIdAndUserId(postId, currentUser.getId());
 
         if (existingLike.isPresent()) {
-            // Unlike
             likeRepository.delete(existingLike.get());
             postService.decrementLikesCount(postId);
-
-            // Send WebSocket event
-            sendLikeEvent(postId, currentUser, post.getLikesCount(), "UNLIKE");
+            int newCount = Math.max(0, post.getLikesCount() - 1);
+            sendLikeEvent(postId, currentUser, newCount, "UNLIKE");
             return false;
         } else {
-            // Like
             Like like = Like.builder()
                     .post(post)
                     .user(currentUser)
                     .build();
-
             likeRepository.save(like);
             postService.incrementLikesCount(postId);
-
-            // Send WebSocket event
-            sendLikeEvent(postId, currentUser, post.getLikesCount() + 1, "LIKE");
+            int newCount = post.getLikesCount() + 1;
+            sendLikeEvent(postId, currentUser, newCount, "LIKE");
             return true;
         }
     }
@@ -89,7 +81,6 @@ public class LikeService {
                 .timestamp(System.currentTimeMillis())
                 .build();
 
-        // Send to all subscribers of this post
         messagingTemplate.convertAndSend("/topic/post/" + postId + "/likes", event);
     }
 }

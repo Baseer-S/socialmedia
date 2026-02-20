@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { commentService } from '../services/commentService';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 /**
  * Reply box component for nested comments
- * Handles reply addition and display
  */
 const ReplyBox = ({ commentId, postId }) => {
   const [replies, setReplies] = useState([]);
@@ -12,41 +11,37 @@ const ReplyBox = ({ commentId, postId }) => {
   const [loading, setLoading] = useState(false);
   const { subscribe, connected } = useWebSocket();
 
-  // Fetch replies on mount
-  useEffect(() => {
-    fetchReplies();
+  const fetchReplies = useCallback(async () => {
+    try {
+      const data = await commentService.getCommentReplies(commentId);
+      setReplies(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching replies:', error);
+    }
   }, [commentId]);
 
-  // Subscribe to real-time reply updates
+  useEffect(() => {
+    fetchReplies();
+  }, [fetchReplies]);
+
   useEffect(() => {
     if (!connected) return;
-
     const unsubscribe = subscribe(`/topic/post/${postId}/comments`, (event) => {
       if (event.action === 'REPLY_ADDED' && event.parentCommentId === commentId) {
         fetchReplies();
       }
     });
-
     return unsubscribe;
-  }, [commentId, postId, connected]);
-
-  const fetchReplies = async () => {
-    try {
-      const data = await commentService.getCommentReplies(commentId);
-      setReplies(data);
-    } catch (error) {
-      console.error('Error fetching replies:', error);
-    }
-  };
+  }, [commentId, postId, connected, fetchReplies]);
 
   const handleAddReply = async (e) => {
     e.preventDefault();
     if (!newReply.trim() || loading) return;
-
     setLoading(true);
     try {
       await commentService.addReply(commentId, newReply);
       setNewReply('');
+      fetchReplies();
     } catch (error) {
       console.error('Error adding reply:', error);
     } finally {
@@ -69,7 +64,7 @@ const ReplyBox = ({ commentId, postId }) => {
           disabled={loading || !newReply.trim()}
           className="px-4 py-1 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
-          Reply
+          {loading ? '...' : 'Reply'}
         </button>
       </form>
 
@@ -77,14 +72,17 @@ const ReplyBox = ({ commentId, postId }) => {
         {replies.map((reply) => (
           <div key={reply.id} className="bg-white p-3 rounded-md border border-gray-200">
             <div className="flex items-center space-x-2 mb-1">
-              <span className="font-semibold text-sm">{reply.user.username}</span>
+              <span className="font-semibold text-sm">{reply.user?.username || 'Unknown'}</span>
               <span className="text-xs text-gray-500">
-                {new Date(reply.createdAt).toLocaleString()}
+                {reply.createdAt ? new Date(reply.createdAt).toLocaleString() : ''}
               </span>
             </div>
             <p className="text-sm text-gray-700">{reply.content}</p>
           </div>
         ))}
+        {replies.length === 0 && (
+          <p className="text-xs text-gray-400">No replies yet.</p>
+        )}
       </div>
     </div>
   );

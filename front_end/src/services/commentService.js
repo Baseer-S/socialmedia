@@ -3,26 +3,7 @@ import { jwtUtils } from '../utils/jwtUtils';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
-/**
- * Comment service for comment and reply operations
- */
 export const commentService = {
-  /**
-   * Add comment to post
-   */
-  addComment: async (postId, content) => {
-    try {
-      const response = await axios.post(
-        `${API_BASE_URL}/comments/post/${postId}`,
-        { content },
-        { headers: jwtUtils.getAuthHeader() }
-      );
-      return response.data;
-    } catch (error) {
-      throw error.response?.data?.message || 'Failed to add comment';
-    }
-  },
-
   /**
    * Get comments for a post
    */
@@ -39,38 +20,23 @@ export const commentService = {
   },
 
   /**
-   * Add reply to comment
+   * Create a new comment
    */
-  addReply: async (commentId, content) => {
+  createComment: async (postId, content) => {
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/comments/${commentId}/replies`,
-        { content },
+        `${API_BASE_URL}/comments`,
+        { postId, content },
         { headers: jwtUtils.getAuthHeader() }
       );
       return response.data;
     } catch (error) {
-      throw error.response?.data?.message || 'Failed to add reply';
+      throw error.response?.data?.message || 'Failed to create comment';
     }
   },
 
   /**
-   * Get replies for a comment
-   */
-  getCommentReplies: async (commentId) => {
-    try {
-      const response = await axios.get(
-        `${API_BASE_URL}/comments/${commentId}/replies`,
-        { headers: jwtUtils.getAuthHeader() }
-      );
-      return response.data;
-    } catch (error) {
-      throw error.response?.data?.message || 'Failed to fetch replies';
-    }
-  },
-
-  /**
-   * Delete comment
+   * Delete a comment
    */
   deleteComment: async (commentId) => {
     try {
@@ -80,20 +46,6 @@ export const commentService = {
       );
     } catch (error) {
       throw error.response?.data?.message || 'Failed to delete comment';
-    }
-  },
-
-  /**
-   * Delete reply
-   */
-  deleteReply: async (replyId) => {
-    try {
-      await axios.delete(
-        `${API_BASE_URL}/comments/replies/${replyId}`,
-        { headers: jwtUtils.getAuthHeader() }
-      );
-    } catch (error) {
-      throw error.response?.data?.message || 'Failed to delete reply';
     }
   }
 };

@@ -17,7 +17,6 @@ import java.util.List;
 
 /**
  * Service for comment operations.
- * Handles comments and replies on posts.
  */
 @Service
 @RequiredArgsConstructor
@@ -43,15 +42,16 @@ public class CommentService {
                 .repliesCount(0)
                 .build();
 
-        commentRepository.save(comment);
+        Comment saved = commentRepository.save(comment);
         postService.incrementCommentsCount(postId);
 
-        return comment;
+        return saved;
     }
 
     /**
      * Get comments for a post
      */
+    @Transactional(readOnly = true)
     public List<Comment> getPostComments(Long postId) {
         return commentRepository.findByPostIdOrderByCreatedAtAsc(postId);
     }
@@ -59,6 +59,7 @@ public class CommentService {
     /**
      * Get comment by ID
      */
+    @Transactional(readOnly = true)
     public Comment getCommentById(Long commentId) {
         return commentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException("Comment not found", HttpStatus.NOT_FOUND));
@@ -78,18 +79,18 @@ public class CommentService {
                 .content(request.getContent())
                 .build();
 
-        replyRepository.save(reply);
+        Reply saved = replyRepository.save(reply);
 
-        // Update replies count
         comment.setRepliesCount(comment.getRepliesCount() + 1);
         commentRepository.save(comment);
 
-        return reply;
+        return saved;
     }
 
     /**
      * Get replies for a comment
      */
+    @Transactional(readOnly = true)
     public List<Reply> getCommentReplies(Long commentId) {
         return replyRepository.findByCommentIdOrderByCreatedAtAsc(commentId);
     }
@@ -102,7 +103,6 @@ public class CommentService {
         Comment comment = getCommentById(commentId);
         User currentUser = userService.getCurrentUser();
 
-        // Check if user owns the comment
         if (!comment.getUser().getId().equals(currentUser.getId())) {
             throw new CustomException("Unauthorized to delete this comment", HttpStatus.FORBIDDEN);
         }
@@ -120,12 +120,10 @@ public class CommentService {
 
         User currentUser = userService.getCurrentUser();
 
-        // Check if user owns the reply
         if (!reply.getUser().getId().equals(currentUser.getId())) {
             throw new CustomException("Unauthorized to delete this reply", HttpStatus.FORBIDDEN);
         }
 
-        // Update replies count
         Comment comment = reply.getComment();
         comment.setRepliesCount(Math.max(0, comment.getRepliesCount() - 1));
         commentRepository.save(comment);

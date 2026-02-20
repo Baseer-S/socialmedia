@@ -1,13 +1,16 @@
 package com.baseer.social.service;
 
 import com.baseer.social.dto.PostRequest;
+import com.baseer.social.dto.PostResponse;
 import com.baseer.social.entity.Post;
 import com.baseer.social.entity.User;
 import com.baseer.social.exceptionHandling.CustomException;
 import com.baseer.social.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +28,10 @@ public class PostService {
 
     /**
      * Create a new post
+     * ⭐ Now returns PostResponse (DTO) instead of Post (entity)
      */
     @Transactional
-    public Post createPost(PostRequest request) {
+    public PostResponse createPost(PostRequest request) {
         User currentUser = userService.getCurrentUser();
 
         Post post = Post.builder()
@@ -38,14 +42,41 @@ public class PostService {
                 .commentsCount(0)
                 .build();
 
-        return postRepository.save(post);
+        Post savedPost = postRepository.save(post);
+        postRepository.flush();
+
+        System.out.println("✅ Post created with ID: " + savedPost.getId());
+
+        // Convert entity to DTO before returning
+        return convertToDTO(savedPost);
     }
 
     /**
      * Get all posts (feed) with pagination
+     * ⭐ Now returns Page<PostResponse> instead of Page<Post>
      */
-    public Page<Post> getAllPosts(Pageable pageable) {
-        return postRepository.findAllByOrderByCreatedAtDesc(pageable);
+    public Page<PostResponse> getAllPosts(Pageable pageable) {
+        System.out.println("=== getAllPosts called ===");
+        System.out.println("Page: " + pageable.getPageNumber() + ", Size: " + pageable.getPageSize());
+
+        // Fetch posts from database
+        Page<Post> posts = postRepository.findAll(
+                PageRequest.of(
+                        pageable.getPageNumber(),
+                        pageable.getPageSize(),
+                        Sort.by("createdAt").descending()
+                )
+        );
+
+        System.out.println("Total posts in DB: " + posts.getTotalElements());
+        System.out.println("Posts in this page: " + posts.getNumberOfElements());
+
+        if (posts.isEmpty()) {
+            System.out.println("⚠️ WARNING: No posts returned!");
+        }
+
+        // Convert Page<Post> to Page<PostResponse>
+        return posts.map(this::convertToDTO);
     }
 
     /**
@@ -65,13 +96,13 @@ public class PostService {
 
     /**
      * Update post
+     * ⭐ Now returns PostResponse instead of Post
      */
     @Transactional
-    public Post updatePost(Long postId, PostRequest request) {
+    public PostResponse updatePost(Long postId, PostRequest request) {
         Post post = getPostById(postId);
         User currentUser = userService.getCurrentUser();
 
-        // Check if user owns the post
         if (!post.getUser().getId().equals(currentUser.getId())) {
             throw new CustomException("Unauthorized to update this post", HttpStatus.FORBIDDEN);
         }
@@ -79,7 +110,10 @@ public class PostService {
         post.setContent(request.getContent());
         post.setImageUrl(request.getImageUrl());
 
-        return postRepository.save(post);
+        Post updatedPost = postRepository.save(post);
+
+        // Convert to DTO before returning
+        return convertToDTO(updatedPost);
     }
 
     /**
@@ -90,7 +124,6 @@ public class PostService {
         Post post = getPostById(postId);
         User currentUser = userService.getCurrentUser();
 
-        // Check if user owns the post
         if (!post.getUser().getId().equals(currentUser.getId())) {
             throw new CustomException("Unauthorized to delete this post", HttpStatus.FORBIDDEN);
         }
@@ -126,5 +159,34 @@ public class PostService {
         Post post = getPostById(postId);
         post.setCommentsCount(post.getCommentsCount() + 1);
         postRepository.save(post);
+    }
+
+    // ========================================
+    // ⭐ NEW METHOD: Convert Post Entity to PostResponse DTO
+    // ========================================
+
+    /**
+     * Convert Post entity to PostResponse DTO
+     * This method extracts only the safe fields we want to send to frontend
+     */
+    private PostResponse convertToDTO(Post post) {
+        // First, build the UserDTO (nested object)
+        PostResponse.UserDTO userDTO = PostResponse.UserDTO.builder()
+                .id(post.getUser().getId())
+                .username(post.getUser().getUsername())
+                .fullName(post.getUser().getFullName())
+                .profilePicture(post.getUser().getProfilePicture())
+                .build();
+
+        // Then, build the PostResponse with the UserDTO inside
+        return PostResponse.builder()
+                .id(post.getId())
+                .content(post.getContent())
+                .imageUrl(post.getImageUrl())
+                .likesCount(post.getLikesCount())
+                .commentsCount(post.getCommentsCount())
+                .createdAt(post.getCreatedAt())
+                .user(userDTO)
+                .build();
     }
 }

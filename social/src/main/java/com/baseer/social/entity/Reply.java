@@ -1,5 +1,7 @@
 package com.baseer.social.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -8,7 +10,6 @@ import java.time.LocalDateTime;
 
 /**
  * Reply entity representing a reply to a comment.
- * This creates a nested comment structure.
  */
 @Entity
 @Table(name = "replies")
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Reply {
 
     @Id
@@ -25,11 +27,13 @@ public class Reply {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "comment_id", nullable = false)
     @ToString.Exclude
+    @JsonIgnore
     private Comment comment;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     @ToString.Exclude
+    @JsonIgnoreProperties({"posts", "comments", "likes", "password", "hibernateLazyInitializer", "handler"})
     private User user;
 
     @Column(nullable = false, columnDefinition = "TEXT")

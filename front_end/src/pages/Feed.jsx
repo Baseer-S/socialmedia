@@ -10,40 +10,20 @@ import Navbar from '../components/Navbar';
 const Feed = () => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newPost, setNewPost] = useState({
-    content: '',
-    imageUrl: ''
-  });
+  const [newPost, setNewPost] = useState({ content: '', imageUrl: '' });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchPosts();
   }, []);
-  
+
   const fetchPosts = async () => {
     try {
       setError('');
       const data = await postService.getAllPosts(0, 20);
-
-      // ✅ data is a PAGE object
       const rawPosts = Array.isArray(data?.content) ? data.content : [];
-
-      const normalizedPosts = rawPosts.map(post => ({
-        id: post.id,
-        content: post.content ?? post.caption ?? '',
-        imageUrl: post.imageUrl ?? null,
-        createdAt: post.createdAt,
-        likesCount: post.likesCount ?? 0,
-        commentsCount: post.commentsCount ?? 0,
-        user: {
-          id: post.user?.id,
-          username: post.user?.username,
-          fullName: post.user?.fullName,
-          profilePicture: post.user?.profilePicture
-        }
-      }));
-
+      const normalizedPosts = rawPosts.map(normalizePost);
       setPosts(normalizedPosts);
     } catch (err) {
       setError('Failed to fetch posts');
@@ -53,7 +33,20 @@ const Feed = () => {
     }
   };
 
-
+  const normalizePost = (post) => ({
+    id: post.id,
+    content: post.content ?? post.caption ?? '',
+    imageUrl: post.imageUrl ?? null,
+    createdAt: post.createdAt,
+    likesCount: post.likesCount ?? 0,
+    commentsCount: post.commentsCount ?? 0,
+    user: {
+      id: post.user?.id,
+      username: post.user?.username ?? 'Unknown',
+      fullName: post.user?.fullName,
+      profilePicture: post.user?.profilePicture,
+    },
+  });
 
   const handleCreatePost = async (e) => {
     e.preventDefault();
@@ -64,24 +57,7 @@ const Feed = () => {
 
     try {
       const createdPost = await postService.createPost(newPost);
-      setPosts(prev => [
-        {
-          id: createdPost.id,
-          content: createdPost.content ?? '',
-          imageUrl: createdPost.imageUrl ?? null,
-          createdAt: createdPost.createdAt,
-          likesCount: createdPost.likesCount ?? 0,
-          commentsCount: createdPost.commentsCount ?? 0,
-          user: {
-            id: createdPost.user?.id,
-            username: createdPost.user?.username,
-            fullName: createdPost.user?.fullName,
-            profilePicture: createdPost.user?.profilePicture
-          }
-        },
-        ...prev
-      ]);
-
+      setPosts((prev) => [normalizePost(createdPost), ...prev]);
       setNewPost({ content: '', imageUrl: '' });
     } catch (err) {
       setError('Failed to create post');
@@ -94,7 +70,7 @@ const Feed = () => {
   const handleDeletePost = async (postId) => {
     try {
       await postService.deletePost(postId);
-      setPosts(prev => prev.filter(post => post.id !== postId));
+      setPosts((prev) => prev.filter((post) => post.id !== postId));
     } catch (err) {
       setError('Failed to delete post');
       console.error(err);
@@ -106,6 +82,7 @@ const Feed = () => {
       <Navbar />
 
       <div className="max-w-3xl mx-auto py-8 px-4">
+        {/* Create Post */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-bold mb-4">Create Post</h2>
 
@@ -121,10 +98,9 @@ const Feed = () => {
               onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
               placeholder="What's on your mind?"
               rows="4"
-              className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3"
+              className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3 resize-none"
               required
             />
-
             <input
               type="url"
               value={newPost.imageUrl}
@@ -132,7 +108,6 @@ const Feed = () => {
               placeholder="Image URL (optional)"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3"
             />
-
             <button
               type="submit"
               disabled={creating || !newPost.content.trim()}
@@ -143,6 +118,7 @@ const Feed = () => {
           </form>
         </div>
 
+        {/* Posts */}
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
@@ -153,12 +129,8 @@ const Feed = () => {
           </div>
         ) : (
           <div>
-            {posts.map(post => (
-              <div key={post.id} className="p-4 bg-white mb-4 border">
-                <p><b>ID:</b> {post.id}</p>
-                <p><b>Content:</b> {post.content}</p>
-                <p><b>User:</b> {post.user?.username}</p>
-              </div>
+            {posts.map((post) => (
+              <PostCard key={post.id} post={post} onDelete={handleDeletePost} />
             ))}
           </div>
         )}

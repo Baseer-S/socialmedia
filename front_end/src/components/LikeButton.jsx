@@ -4,33 +4,49 @@ import { useWebSocket } from '../hooks/useWebSocket';
 
 /**
  * Like button component with real-time updates
- * Handles like/unlike functionality and displays like count
  */
 const LikeButton = ({ postId, initialLikesCount, initialLiked }) => {
-  const [likesCount, setLikesCount] = useState(initialLikesCount);
-  const [liked, setLiked] = useState(initialLiked);
+  const [likesCount, setLikesCount] = useState(initialLikesCount || 0);
+  const [liked, setLiked] = useState(initialLiked || false);
   const [loading, setLoading] = useState(false);
   const { subscribe, connected } = useWebSocket();
 
+  // Fetch actual like status on mount
+  useEffect(() => {
+    const fetchLikeStatus = async () => {
+      try {
+        const status = await likeService.getLikeStatus(postId);
+        setLiked(status);
+      } catch (err) {
+        // silently fail, use initial value
+      }
+    };
+    fetchLikeStatus();
+  }, [postId]);
+
   useEffect(() => {
     if (!connected) return;
-
-    // Subscribe to like events for this post
     const unsubscribe = subscribe(`/topic/post/${postId}/likes`, (event) => {
       setLikesCount(event.likesCount);
     });
-
     return unsubscribe;
   }, [postId, connected]);
 
   const handleLike = async () => {
     if (loading) return;
-
     setLoading(true);
+    // Optimistic update
+    const prevLiked = liked;
+    const prevCount = likesCount;
+    setLiked(!liked);
+    setLikesCount(liked ? Math.max(0, likesCount - 1) : likesCount + 1);
     try {
       const response = await likeService.toggleLike(postId);
       setLiked(response.liked);
     } catch (error) {
+      // Revert on error
+      setLiked(prevLiked);
+      setLikesCount(prevCount);
       console.error('Error toggling like:', error);
     } finally {
       setLoading(false);
@@ -45,7 +61,7 @@ const LikeButton = ({ postId, initialLikesCount, initialLiked }) => {
         liked
           ? 'bg-red-500 hover:bg-red-600 text-white'
           : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-      } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+      } ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
     >
       <svg
         className="w-5 h-5"

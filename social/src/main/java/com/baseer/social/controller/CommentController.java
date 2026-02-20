@@ -4,7 +4,6 @@ import com.baseer.social.dto.CommentRequest;
 import com.baseer.social.entity.Comment;
 import com.baseer.social.entity.Reply;
 import com.baseer.social.service.CommentService;
-import com.baseer.social.service.UserService;
 import com.baseer.social.websocket.CommentEvent;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +16,6 @@ import java.util.List;
 
 /**
  * REST Controller for comment endpoints.
- * Handles comments and replies on posts.
  */
 @RestController
 @RequestMapping("/api/comments")
@@ -26,7 +24,6 @@ import java.util.List;
 public class CommentController {
 
     private final CommentService commentService;
-    private final UserService userService;
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
@@ -39,8 +36,19 @@ public class CommentController {
             @Valid @RequestBody CommentRequest request) {
         Comment comment = commentService.addComment(postId, request);
 
-        // Send WebSocket event
-        sendCommentEvent(comment, "COMMENT_ADDED");
+        // Send WebSocket event - use postId from path, not lazy post
+        CommentEvent event = CommentEvent.builder()
+                .commentId(comment.getId())
+                .postId(postId)
+                .userId(comment.getUser().getId())
+                .username(comment.getUser().getUsername())
+                .content(comment.getContent())
+                .commentsCount(null)
+                .action("COMMENT_ADDED")
+                .parentCommentId(null)
+                .timestamp(System.currentTimeMillis())
+                .build();
+        messagingTemplate.convertAndSend("/topic/post/" + postId + "/comments", event);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(comment);
     }
@@ -65,8 +73,25 @@ public class CommentController {
             @Valid @RequestBody CommentRequest request) {
         Reply reply = commentService.addReply(commentId, request);
 
-        // Send WebSocket event
-        sendReplyEvent(reply, "REPLY_ADDED");
+        // Get post id from the comment service
+        Long postId = commentService.getCommentById(commentId).getPost() != null
+                ? commentService.getCommentById(commentId).getPost().getId()
+                : null;
+
+        if (postId != null) {
+            CommentEvent event = CommentEvent.builder()
+                    .commentId(reply.getId())
+                    .postId(postId)
+                    .userId(reply.getUser().getId())
+                    .username(reply.getUser().getUsername())
+                    .content(reply.getContent())
+                    .commentsCount(null)
+                    .action("REPLY_ADDED")
+                    .parentCommentId(commentId)
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            messagingTemplate.convertAndSend("/topic/post/" + postId + "/comments", event);
+        }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(reply);
     }
@@ -99,43 +124,5 @@ public class CommentController {
     public ResponseEntity<Void> deleteReply(@PathVariable Long replyId) {
         commentService.deleteReply(replyId);
         return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Send comment event via WebSocket
-     */
-    private void sendCommentEvent(Comment comment, String action) {
-        CommentEvent event = CommentEvent.builder()
-                .commentId(comment.getId())
-                .postId(comment.getPost().getId())
-                .userId(comment.getUser().getId())
-                .username(comment.getUser().getUsername())
-                .content(comment.getContent())
-                .commentsCount(comment.getPost().getCommentsCount())
-                .action(action)
-                .parentCommentId(null)
-                .timestamp(System.currentTimeMillis())
-                .build();
-
-        messagingTemplate.convertAndSend("/topic/post/" + comment.getPost().getId() + "/comments", event);
-    }
-
-    /**
-     * Send reply event via WebSocket
-     */
-    private void sendReplyEvent(Reply reply, String action) {
-        CommentEvent event = CommentEvent.builder()
-                .commentId(reply.getId())
-                .postId(reply.getComment().getPost().getId())
-                .userId(reply.getUser().getId())
-                .username(reply.getUser().getUsername())
-                .content(reply.getContent())
-                .commentsCount(reply.getComment().getPost().getCommentsCount())
-                .action(action)
-                .parentCommentId(reply.getComment().getId())
-                .timestamp(System.currentTimeMillis())
-                .build();
-
-        messagingTemplate.convertAndSend("/topic/post/" + reply.getComment().getPost().getId() + "/comments", event);
     }
 }

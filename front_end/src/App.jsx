@@ -8,6 +8,7 @@ import Feed from './pages/Feed';
 import Profile from './pages/Profile';
 import './index.css';
 
+
 /**
  * Main App component
  * Sets up routing and authentication context

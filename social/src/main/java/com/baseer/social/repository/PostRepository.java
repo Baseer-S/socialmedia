@@ -21,6 +21,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * @param pageable pagination information
      * @return page of posts
      */
+
     Page<Post> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     /**

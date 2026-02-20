@@ -1,6 +1,9 @@
 package com.baseer.social.controller;
 
+
+
 import com.baseer.social.dto.PostRequest;
+import com.baseer.social.dto.PostResponse;
 import com.baseer.social.entity.Post;
 import com.baseer.social.service.PostService;
 import jakarta.validation.Valid;
@@ -27,23 +30,25 @@ public class PostController {
     /**
      * Create a new post
      * POST /api/posts
+     * ⭐ Now returns PostResponse (DTO)
      */
     @PostMapping
-    public ResponseEntity<Post> createPost(@Valid @RequestBody PostRequest request) {
-        Post post = postService.createPost(request);
+    public ResponseEntity<PostResponse> createPost(@Valid @RequestBody PostRequest request) {
+        PostResponse post = postService.createPost(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(post);
     }
 
     /**
      * Get all posts (feed) with pagination
      * GET /api/posts?page=0&size=10
+     * ⭐ Now returns Page<PostResponse> (DTOs)
      */
     @GetMapping
-    public ResponseEntity<Page<Post>> getAllPosts(
+    public ResponseEntity<Page<PostResponse>> getAllPosts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Post> posts = postService.getAllPosts(pageable);
+        Page<PostResponse> posts = postService.getAllPosts(pageable);
         return ResponseEntity.ok(posts);
     }
 
@@ -74,12 +79,13 @@ public class PostController {
     /**
      * Update post
      * PUT /api/posts/{postId}
+     * ⭐ Now returns PostResponse (DTO)
      */
     @PutMapping("/{postId}")
-    public ResponseEntity<Post> updatePost(
+    public ResponseEntity<PostResponse> updatePost(
             @PathVariable Long postId,
             @Valid @RequestBody PostRequest request) {
-        Post post = postService.updatePost(postId, request);
+        PostResponse post = postService.updatePost(postId, request);
         return ResponseEntity.ok(post);
     }
 
